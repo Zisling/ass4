@@ -1,4 +1,3 @@
-import {reduce, reject} from "ramda";
 
 const g = (x:number):Promise<number>=> {
     return new Promise<number>((resolve, reject)=>
