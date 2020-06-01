@@ -1,7 +1,19 @@
 // L5-eval-box
 
 import { map, repeat, zipWith } from "ramda";
-import { CExp, Exp, IfExp, LetrecExp, LetExp, ProcExp, Program, SetExp, isCExp } from './L5-ast';
+import {
+    CExp,
+    Exp,
+    IfExp,
+    LetrecExp,
+    LetExp,
+    ProcExp,
+    Program,
+    SetExp,
+    isCExp,
+    isLetValuesExp,
+    LetValuesExp
+} from './L5-ast';
 import { Binding, VarDecl } from "./L5-ast";
 import { isBoolExp, isLitExp, isNumExp, isPrimOp, isStrExp, isVarRef } from "./L5-ast";
 import { parseL5Exp } from "./L5-ast";
@@ -9,7 +21,7 @@ import { isAppExp, isDefineExp, isIfExp, isLetrecExp, isLetExp,
          isProcExp, isSetExp } from "./L5-ast";
 import { applyEnv, applyEnvBdg, globalEnvAddBinding, makeExtEnv, setFBinding,
          theGlobalEnv, Env, FBinding } from "./L5-env";
-import { isClosure, makeClosure, Closure, Value } from "./L5-value";
+import {isClosure, makeClosure, Closure, Value, SExpValue} from "./L5-value";
 import { isEmpty, first, rest } from '../shared/list';
 import { Result, makeOk, makeFailure, mapResult, safe2, bind } from "../shared/result";
 import { parse as p } from "../shared/parser";
@@ -28,6 +40,7 @@ export const applicativeEval = (exp: CExp, env: Env): Result<Value> =>
     isIfExp(exp) ? evalIf(exp, env) :
     isProcExp(exp) ? evalProc(exp, env) :
     isLetExp(exp) ? evalLet(exp, env) :
+    isLetValuesExp(exp) ? evalLetValue(exp, env) :
     isLetrecExp(exp) ? evalLetrec(exp, env) :
     isSetExp(exp) ? evalSet(exp, env) :
     isAppExp(exp) ? safe2((proc: Value, args: Value[]) => applyProcedure(proc, args))
@@ -47,9 +60,12 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 // KEY: This procedure does NOT have an env parameter.
 //      Instead we use the env of the closure.
 const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
-    isPrimOp(proc) ? applyPrimitive(proc, args) :
+    isPrimOp(proc) ? proc.op!=="values"?applyPrimitive(proc, args):applyValue(args) :
     isClosure(proc) ? applyClosure(proc, args) :
     makeFailure(`Bad procedure ${JSON.stringify(proc)}`);
+
+const applyValue=(arg:SExpValue[]):Result<Value>=>
+    makeFailure("not impla")//TODO
 
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     const vars = map((v: VarDecl) => v.var, proc.params);
@@ -85,6 +101,11 @@ export const evalProgram = (program: Program): Result<Value> =>
 export const evalParse = (s: string): Result<Value> =>
     bind(bind(p(s), parseL5Exp), (exp: Exp) => evalSequence([exp], theGlobalEnv));
 
+//letValue
+export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=>
+    makeFailure("not implanted")
+
+
 // LET: Direct evaluation rule without syntax expansion
 // compute the values, extend the env, eval the body.
 const evalLet = (exp: LetExp, env: Env): Result<Value> => {
@@ -113,3 +134,6 @@ const evalLetrec = (exp: LetrecExp, env: Env): Result<Value> => {
 const evalSet = (exp: SetExp, env: Env): Result<void> =>
     safe2((val: Value, bdg: FBinding) => makeOk(setFBinding(bdg, val)))
         (applicativeEval(exp.val, env), applyEnvBdg(env, exp.var.var));
+
+
+console.log(evalParse('(values 1 2 3)'));
