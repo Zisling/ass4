@@ -41,6 +41,8 @@ import { isArray, isString, isNumericString, isIdentifier } from "../shared/type
 //         |  ( let ( <binding>* ) <cexp>+ )  / LetExp(bindings:Binding[], body:CExp[]))
 //         |  ( letrec ( binding*) <cexp>+ )  / LetrecExp(bindings:Bindings[], body: CExp)
 //         |  ( set! <var> <cexp>)            / SetExp(var: varRef, val: CExp)
+//         |  ( values <cexp>*)               / Values(vals: CExp[])
+//         |  ( let-values <var>* <cexp>*)    / Let-Values(vars: CExp[] vals: CExp[])
 // <binding>  ::= ( <var> <cexp> )            / Binding(var:VarDecl, val:Cexp)
 // <prim-op>  ::= + | - | * | / | < | > | = | not |  eq? | string=?
 //                  | cons | car | cdr | list? | number?
@@ -79,6 +81,15 @@ export const expComponents = (e: Exp): CExp[] =>
     isSetExp(e) ? [e.val] :
     isDefineExp(e) ? [e.val] :
     []; // Atomic expressions have no components
+
+//Values and Let-Values interface and maker
+export interface ValuesExp {tag:"ValuesExp"; vals:CExp[];}
+export interface LetValuesExp {tag:"LetValuesExp"; vars:CExp[]; vals:CExp}
+export const makeValuesExp = (vals:CExp[]):ValuesExp=>({tag:"ValuesExp",vals:vals });
+export const makeLetValuesExp = (vars:CExp[] , val:CExp):LetValuesExp=>({tag:"LetValuesExp",vars:vars , vals:val });
+export const isValuesExp = (x: any): x is ValuesExp => x.tag === "ValuesExp";
+export const isLetValuesExp = (x: any): x is LetValuesExp => x.tag === "LetValuesExp";
+
 
 // Type definitions
 export interface Program {tag: "Program"; exps: Exp[]; }
