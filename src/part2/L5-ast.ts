@@ -5,11 +5,11 @@
 
 import { join, map, zipWith } from "ramda";
 import { Sexp, Token } from 's-expression';
-import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from './L5-value';
-import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp } from './TExp';
+import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from '../part2/L5-value';
+import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp } from '../part2/TExp';
 import { allT, first, rest, second, isEmpty } from '../shared/list';
 import { parse as p, isToken, isSexpString } from "../shared/parser";
-import { Result, bind, makeFailure, mapResult, makeOk, safe2, safe3 } from "../shared/result";
+import {Result, bind, makeFailure, mapResult, makeOk, safe2, safe3, isOk} from "../shared/result";
 import { isArray, isString, isNumericString, isIdentifier } from "../shared/type-predicates";
 
 /*
@@ -41,8 +41,6 @@ import { isArray, isString, isNumericString, isIdentifier } from "../shared/type
 //         |  ( let ( <binding>* ) <cexp>+ )  / LetExp(bindings:Binding[], body:CExp[]))
 //         |  ( letrec ( binding*) <cexp>+ )  / LetrecExp(bindings:Bindings[], body: CExp)
 //         |  ( set! <var> <cexp>)            / SetExp(var: varRef, val: CExp)
-//         |  ( values <cexp>*)               / Values(vals: CExp[])
-//         |  ( let-values <var>* <cexp>*)    / Let-Values(vars: CExp[] vals: CExp[])
 // <binding>  ::= ( <var> <cexp> )            / Binding(var:VarDecl, val:Cexp)
 // <prim-op>  ::= + | - | * | / | < | > | = | not |  eq? | string=?
 //                  | cons | car | cdr | list? | number?
@@ -69,9 +67,9 @@ export const isAtomicExp = (x: any): x is AtomicExp =>
     isNumExp(x) || isBoolExp(x) || isStrExp(x) ||
     isPrimOp(x) || isVarRef(x);
 
-export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | LetrecExp | SetExp;
+export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | LetrecExp | SetExp | LetValuesExp;
 export const isCompoundExp = (x: any): x is CompoundExp =>
-    isAppExp(x) || isIfExp(x) || isProcExp(x) || isLitExp(x) || isLetExp(x) || isLetrecExp(x) || isSetExp(x);
+    isAppExp(x) || isIfExp(x) || isProcExp(x) || isLitExp(x) || isLetExp(x) || isLetrecExp(x) || isSetExp(x) || isLetValuesExp(x);
 export const expComponents = (e: Exp): CExp[] =>
     isIfExp(e) ? [e.test, e.then, e.alt] :
     isProcExp(e) ? e.body :
@@ -82,16 +80,11 @@ export const expComponents = (e: Exp): CExp[] =>
     isDefineExp(e) ? [e.val] :
     []; // Atomic expressions have no components
 
-//Values and Let-Values interface and maker
-export interface ValuesExp {tag:"ValuesExp"; vals:CExp[];}
-export interface LetValuesExp {tag:"LetValuesExp"; vars:CExp[]; vals:CExp}
-export const makeValuesExp = (vals:CExp[]):ValuesExp=>({tag:"ValuesExp",vals:vals });
-export const makeLetValuesExp = (vars:CExp[] , val:CExp):LetValuesExp=>({tag:"LetValuesExp",vars:vars , vals:val });
-export const isValuesExp = (x: any): x is ValuesExp => x.tag === "ValuesExp";
-export const isLetValuesExp = (x: any): x is LetValuesExp => x.tag === "LetValuesExp";
-
-
 // Type definitions
+export interface LetValuesExp {tag:"LetValuesExp"; bdp: BindingPlural, body:CExp[]}
+export const isLetValuesExp = (x: any): x is LetValuesExp => x.tag === "LetValuesExp";
+export const makeLetValuesExp = (bdp: BindingPlural, body:CExp[]):LetValuesExp=>({tag:"LetValuesExp",bdp:bdp, body:body });
+
 export interface Program {tag: "Program"; exps: Exp[]; }
 export const makeProgram = (exps: Exp[]): Program => ({tag: "Program", exps: exps});
 export const isProgram = (x: any): x is Program => x.tag === "Program";
@@ -144,6 +137,13 @@ export interface Binding {tag: "Binding"; var: VarDecl; val: CExp; }
 export const makeBinding = (v: VarDecl, val: CExp): Binding =>
     ({tag: "Binding", var: v, val: val});
 export const isBinding = (x: any): x is Binding => x.tag === "Binding";
+
+/* New /* New /* New /* New /* New /* New /* New /* New /* New /* New /* New /* New /* New /* New /* New */
+export interface BindingPlural {tag: "BindingPlural"; var: VarDecl[]; val: CExp; }
+export const makeBindingPlural = (v: VarDecl[], val: CExp): BindingPlural =>
+    ({tag: "BindingPlural", var: v, val: val});
+export const isBindingPlural = (x: any): x is Binding => x.tag === "BindingPlural";
+
 
 export interface LetExp {tag: "LetExp"; bindings: Binding[]; body: CExp[]; }
 export const makeLetExp = (bindings: Binding[], body: CExp[]): LetExp =>
@@ -203,6 +203,7 @@ export const parseL5SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
     op === "quote" ? parseLitExp(first(params)) :
     op === "letrec" ? parseLetrecExp(first(params), rest(params)) :
     op === "set!" ? parseSetExp(params) :
+    op === "let-values" ? parseLetValuesExp(first(params), rest(params)):
     makeFailure("Never");
 
 export const parseDefine = (params: Sexp[]): Result<DefineExp> =>
@@ -230,6 +231,20 @@ export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
     isToken(sexp) ? parseL5Atomic(sexp) :
     makeFailure("Unexpected type " + sexp);
 
+/* New /* New /* New /* New /* New /* New /* New */
+export const parseLetValuesExp = (vars_vals: Sexp, body:Sexp[] ): Result<LetValuesExp> =>
+    isEmpty(body) ? makeFailure('Body of "let-values" cannot be empty') :
+        isArray(vars_vals) && vars_vals.length === 2 ?
+            safe2((bdg:BindingPlural, body:CExp[])=> makeOk(makeLetValuesExp(bdg, body)))
+            (parseBindingPlural(first(vars_vals), rest(vars_vals)), mapResult(parseL5CExp, body)) :
+            makeFailure("parse of LetValues failed.");
+
+
+export const parseBindingPlural = (vars: Sexp, val: Sexp): Result<BindingPlural> =>
+        isArray(vars) ?
+        safe2((vds: VarDecl[], vals: CExp) => makeOk(makeBindingPlural(vds, vals)))
+        (mapResult(parseVarDecl, vars), parseL5CExp(val)) :
+        makeFailure("parse of BindingPlural failed.");
 /*
     // <prim-op>  ::= + | - | * | / | < | > | = | not |  eq? | string=?
     //                  | cons | car | cdr | list? | number?
@@ -238,10 +253,10 @@ export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
 const isPrimitiveOp = (x: string): boolean =>
     ["+", "-", "*", "/", ">", "<", "=", "not", "eq?",
      "string=?", "cons", "car", "cdr", "pair?", "list?",
-     "number?", "boolean?", "symbol?", "string?", "display", "newline"].includes(x);
+     "number?", "boolean?", "symbol?", "string?", "display", "newline", "values"].includes(x);
 
 const isSpecialForm = (x: string): boolean =>
-    ["if", "lambda", "let", "quote", "letrec", "set!"].includes(x);
+    ["if", "lambda", "let", "quote", "letrec", "set!", "let-values"].includes(x);
 
 const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
     safe2((rator: CExp, rands: CExp[]) => makeOk(makeAppExp(rator, rands)))
@@ -361,6 +376,7 @@ export const unparse = (e: Parsed): Result<string> =>
     isProcExp(e) ? unparseProcExp(e) :
     isLitExp(e) ? makeOk(unparseLitExp(e)) :
     isSetExp(e) ? unparseSetExp(e) :
+    isLetValuesExp(e) ? makeFailure("Not implemented yet , spahget"): //TODO
     // DefineExp | Program
     isDefineExp(e) ? safe2((vd: string, val: string) => makeOk(`(define ${vd} ${val})`))
                         (unparseVarDecl(e.var), unparse(e.val)) :
@@ -402,3 +418,7 @@ const unparseLetrecExp = (le: LetrecExp): Result<string> =>
 
 const unparseSetExp = (se: SetExp): Result<string> =>
     bind(unparse(se.val), (val: string) => makeOk(`(set! ${se.var.var} ${val})`));
+
+
+// const spahget = parseL5('(L5 (values 1 2 3))')
+// console.log(isOk(spahget) && isProgram(spahget.value) && isAppExp(spahget.value.exps[0]) ? spahget.value.exps[0] : spahget);
