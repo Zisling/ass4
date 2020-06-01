@@ -35,7 +35,7 @@ import { isEmpty } from "../shared/list";
 import { isArray, isBoolean, isString } from '../shared/type-predicates';
 import { makeBox, setBox, unbox, Box } from '../shared/box';
 import { first, rest } from '../shared/list';
-import { Result, bind, makeOk, makeFailure, safe2, mapResult } from "../shared/result";
+import {Result, bind, makeOk, makeFailure, safe2, mapResult, isOk} from "../shared/result";
 import { parse as p } from "../shared/parser";
 
 export type TExp =  AtomicTExp | CompoundTExp | TVar;
@@ -86,8 +86,8 @@ export const makeEmptyTupleTExp = (): EmptyTupleTExp => ({tag: "EmptyTupleTExp"}
 export const isEmptyTupleTExp = (x: any): x is EmptyTupleTExp => x.tag === "EmptyTupleTExp";
 
 // NonEmptyTupleTExp(TEs: NonTupleTExp[])
-export interface NonEmptyTupleTExp { tag: "NonEmptyTupleTExp"; TEs: NonTupleTExp[]; }
-export const makeNonEmptyTupleTExp = (tes: NonTupleTExp[]): NonEmptyTupleTExp =>
+export interface NonEmptyTupleTExp { tag: "NonEmptyTupleTExp"; TEs: TExp[]; }
+export const makeNonEmptyTupleTExp = (tes: TExp[]): NonEmptyTupleTExp =>
     ({tag: "NonEmptyTupleTExp", TEs: tes});
 export const isNonEmptyTupleTExp = (x: any): x is NonEmptyTupleTExp => x.tag === "NonEmptyTupleTExp";
 
@@ -162,9 +162,9 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 ;; expected exactly one -> in the list
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
-const parseCompoundTExp = (texps: Sexp[]): Result<ProcTExp> => {
+const parseCompoundTExp = (texps: Sexp[]): Result<ProcTExp|TupleTExp> => {
     const pos = texps.indexOf('->');
-    return (pos === -1)  ? makeFailure(`Procedure type expression without -> - ${texps}`) :
+    return (pos === -1)  ?isEmpty(texps)?makeOk(makeEmptyTupleTExp()):bind(parseTupleTExp(texps),(parsed:TExp[])=>makeOk(makeNonEmptyTupleTExp(parsed))) :
            (pos === 0) ? makeFailure(`No param types in proc texp - ${texps}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${texps}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${texps}`) :
