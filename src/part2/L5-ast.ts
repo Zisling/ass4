@@ -5,8 +5,8 @@
 
 import { join, map, zipWith } from "ramda";
 import { Sexp, Token } from 's-expression';
-import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from '../part2/L5-value';
-import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp } from '../part2/TExp';
+import { isCompoundSExp, isEmptySExp, isSymbolSExp, makeCompoundSExp, makeEmptySExp, makeSymbolSExp, SExpValue, valueToString } from './L5-value';
+import { isTVar, makeFreshTVar, parseTExp, unparseTExp, TExp } from './TExp';
 import { allT, first, rest, second, isEmpty } from '../shared/list';
 import { parse as p, isToken, isSexpString } from "../shared/parser";
 import {Result, bind, makeFailure, mapResult, makeOk, safe2, safe3, isOk} from "../shared/result";
@@ -203,7 +203,7 @@ export const parseL5SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
     op === "quote" ? parseLitExp(first(params)) :
     op === "letrec" ? parseLetrecExp(first(params), rest(params)) :
     op === "set!" ? parseSetExp(params) :
-    op === "let-values" ? parseLetValuesExp(first(params), rest(params)):
+    op === "​​let-values" ? parseLetValuesExp(first(params), rest(params)):
     makeFailure("Never");
 
 export const parseDefine = (params: Sexp[]): Result<DefineExp> =>
@@ -232,18 +232,19 @@ export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
     makeFailure("Unexpected type " + sexp);
 
 /* New /* New /* New /* New /* New /* New /* New */
-export const parseLetValuesExp = (vars_vals: Sexp, body:Sexp[] ): Result<LetValuesExp> =>
-    isEmpty(body) ? makeFailure('Body of "let-values" cannot be empty') :
-        isArray(vars_vals) && vars_vals.length === 2 ?
+export const parseLetValuesExp = (vars_vals: Sexp, body:Sexp[] ): Result<LetValuesExp> =>{
+    console.log(body)
+    return isEmpty(body) ? makeFailure('Body of "let-values" cannot be empty') :
+        isArray(vars_vals[0])?
             safe2((bdg:BindingPlural, body:CExp[])=> makeOk(makeLetValuesExp(bdg, body)))
-            (parseBindingPlural(first(vars_vals), rest(vars_vals)), mapResult(parseL5CExp, body)) :
+            (parseBindingPlural(first(vars_vals[0]), rest(vars_vals[0])), mapResult(parseL5CExp, body)) :
             makeFailure("parse of LetValues failed.");
-
+}
 
 export const parseBindingPlural = (vars: Sexp, val: Sexp): Result<BindingPlural> =>
         isArray(vars) ?
         safe2((vds: VarDecl[], vals: CExp) => makeOk(makeBindingPlural(vds, vals)))
-        (mapResult(parseVarDecl, vars), parseL5CExp(val)) :
+        (mapResult(parseVarDecl, vars), parseL5CExp(val[0])) :
         makeFailure("parse of BindingPlural failed.");
 /*
     // <prim-op>  ::= + | - | * | / | < | > | = | not |  eq? | string=?
@@ -256,7 +257,7 @@ const isPrimitiveOp = (x: string): boolean =>
      "number?", "boolean?", "symbol?", "string?", "display", "newline", "values"].includes(x);
 
 const isSpecialForm = (x: string): boolean =>
-    ["if", "lambda", "let", "quote", "letrec", "set!", "let-values"].includes(x);
+    ["if", "lambda", "let", "quote", "letrec", "set!", "​​let-values"].includes(x);
 
 const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
     safe2((rator: CExp, rands: CExp[]) => makeOk(makeAppExp(rator, rands)))
@@ -376,11 +377,16 @@ export const unparse = (e: Parsed): Result<string> =>
     isProcExp(e) ? unparseProcExp(e) :
     isLitExp(e) ? makeOk(unparseLitExp(e)) :
     isSetExp(e) ? unparseSetExp(e) :
-    isLetValuesExp(e) ? makeFailure("Not implemented yet , spahget"): //TODO
+    isLetValuesExp(e) ? safe2((SBdp:string,SBody:string[]):Result<string>=>makeOk(`(let-values (${SBdp}) ${SBody})`))
+        (unparsedBindingPlural(e.bdp),mapResult(unparse,e.body)):
     // DefineExp | Program
     isDefineExp(e) ? safe2((vd: string, val: string) => makeOk(`(define ${vd} ${val})`))
                         (unparseVarDecl(e.var), unparse(e.val)) :
     bind(mapResult(unparse, e.exps), (exps: string[]) => makeOk(`(L5 ${exps})`));
+
+const unparsedBindingPlural = ((bdp:BindingPlural):Result<string>=>
+safe2((sVar:string[],sVal:string)=>makeOk(`((${sVar.join(' ')}) ${sVal})`))
+(mapResult(unparseVarDecl,bdp.var),unparse(bdp.val)));
 
 const unparseReturn = (te: TExp): Result<string> =>
     isTVar(te) ? makeOk("") :
@@ -419,6 +425,11 @@ const unparseLetrecExp = (le: LetrecExp): Result<string> =>
 const unparseSetExp = (se: SetExp): Result<string> =>
     bind(unparse(se.val), (val: string) => makeOk(`(set! ${se.var.var} ${val})`));
 
-
-// const spahget = parseL5('(L5 (values 1 2 3))')
-// console.log(isOk(spahget) && isProgram(spahget.value) && isAppExp(spahget.value.exps[0]) ? spahget.value.exps[0] : spahget);
+// const spahget = parseL5('(L5 (​​let-values (((​x y​) (​quotient/remainder ​​10 ​​3​))) (list y x)))')
+// const spahget2 = parseL5('(L5 (​​let-values (((a b c) (f 0))) (+ a b c)))')
+// console.log(isOk(spahget) && isProgram(spahget.value) && isLetValuesExp(spahget.value.exps[0])? spahget.value.exps[0] : spahget);
+// console.log(isOk(spahget2) && isProgram(spahget2.value) && isLetValuesExp(spahget2.value.exps[0])? spahget2.value.exps[0] : spahget);
+// const y = isOk(spahget2)?unparse(spahget2.value):spahget2
+// console.log(isOk(y)?y.value:y)
+// const spa = isOk(y)?parseL5(y.value):y
+// console.log(isOk(spa)?spa.value:spa)

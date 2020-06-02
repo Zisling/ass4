@@ -291,7 +291,7 @@ export const equivalentTEs = (te1: TExp, te2: TExp): boolean => {
         return (uniq(map((p) => p.left.var, tvarsPairs)).length === uniq(map((p) => p.right.var, tvarsPairs)).length);
     }
 };
-const x = parseTE('(number * number -> (number * number -> string))')
-console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
-const y =isOk(x)?unparseTExp(x.value):x;
-console.log(isOk(y)?y.value:y)
+// const x = parseTE('(number * number -> (number * number -> string))')
+// console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
+// const y =isOk(x)?unparseTExp(x.value):x;
+// console.log(isOk(y)?y.value:y)
