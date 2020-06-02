@@ -106,10 +106,8 @@ export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=> {
     const vals =applicativeEval(exp.bdp.val, env)
     const vars = map((b: VarDecl) => b.var, exp.bdp.var);
     console.log(vals)
-
-    return isOk(vals)&&isArray(vals.value)&&vals.value.length===vars.length?
-        bind(vals,(val:SExpValue)=>isArray(val)?evalSequence(exp.body, makeExtEnv(vars, val, env)):makeFailure("TODO"))//TODO
-        :makeFailure("nir lama 🤕")
+    return bind(vals,(val:SExpValue)=>isArray(val)&&val.length===vars.length?evalSequence(exp.body, makeExtEnv(vars, val, env))
+        :makeFailure(`number of var decal is not equal to values val = ${val} vars = ${vars}`))
 }
 
 // LET: Direct evaluation rule without syntax expansion
