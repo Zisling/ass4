@@ -204,9 +204,11 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isBoolTExp(x) ? makeOk('boolean') :
         isStrTExp(x) ? makeOk('string') :
         isVoidTExp(x) ? makeOk('void') :
+        isEmptyTupleTExp(x) ? makeOk(["Empty"]) :
+        isNonEmptyTupleTExp(x) ? unparseTuple(x.TEs) :
         isEmptyTVar(x) ? makeOk(x.var) :
         isTVar(x) ? up(tvarContents(x)) :
-        isProcTExp(x) ? safe2((paramTEs: string[], returnTE: string) => makeOk([...paramTEs, '->', returnTE]))
+        isProcTExp(x) ? safe2((paramTEs: string[], returnTE: string | string[]) => makeOk([...paramTEs, '->', isString(returnTE)?returnTE:returnTE.join(' ')]))
                             (isNonEmptyTupleTExp(x.paramTEs)?unparseTuple(x.paramTEs.TEs):isEmptyTupleTExp(x.paramTEs)?makeOk(["Empty"]):
                                 bind(unparseTExp(x.paramTEs),r=>makeOk([r]))
                                 , unparseTExp(x.returnTE)) :
@@ -289,5 +291,7 @@ export const equivalentTEs = (te1: TExp, te2: TExp): boolean => {
         return (uniq(map((p) => p.left.var, tvarsPairs)).length === uniq(map((p) => p.right.var, tvarsPairs)).length);
     }
 };
-// const x = parseTE('(number -> number * number)')
-// console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
+const x = parseTE('(number * number -> (number * number -> string))')
+console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
+const y =isOk(x)?unparseTExp(x.value):x;
+console.log(isOk(y)?y.value:y)
