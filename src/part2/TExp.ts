@@ -163,9 +163,9 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
 ;; expected exactly one -> in the list
 ;; We do not accept (a -> b -> c) - must parenthesize
 */
-const parseCompoundTExp = (texps: Sexp[]): Result<ProcTExp|TupleTExp> => {
+const parseCompoundTExp = (texps: Sexp[]): Result<TExp> => {
     const pos = texps.indexOf('->');
-    return (pos === -1)  ?isEmpty(texps)?makeOk(makeEmptyTupleTExp()):bind(parseTupleTExp(texps),(parsed:TExp[])=>makeOk(makeNonEmptyTupleTExp(parsed))) :
+    return (pos === -1)  ?isEmpty(texps)?makeOk(makeEmptyTupleTExp()):texps.length===1?parseTExp(texps[0]):bind(parseTupleTExp(texps),(parsed:TExp[])=>makeOk(makeNonEmptyTupleTExp(parsed))) :
            (pos === 0) ? makeFailure(`No param types in proc texp - ${texps}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${texps}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${texps}`) :
@@ -289,5 +289,5 @@ export const equivalentTEs = (te1: TExp, te2: TExp): boolean => {
         return (uniq(map((p) => p.left.var, tvarsPairs)).length === uniq(map((p) => p.right.var, tvarsPairs)).length);
     }
 };
-const x = parseTE('(Empty -> Empty)')
-console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
+// const x = parseTE('(number -> number * number)')
+// console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
