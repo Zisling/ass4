@@ -12,7 +12,7 @@ import {
     SetExp,
     isCExp,
     isLetValuesExp,
-    LetValuesExp
+    LetValuesExp, BindingPlural
 } from './L5-ast';
 import { Binding, VarDecl } from "./L5-ast";
 import { isBoolExp, isLitExp, isNumExp, isPrimOp, isStrExp, isVarRef } from "./L5-ast";
@@ -26,6 +26,7 @@ import { isEmpty, first, rest } from '../shared/list';
 import {Result, makeOk, makeFailure, mapResult, safe2, bind, isOk} from "../shared/result";
 import { parse as p } from "../shared/parser";
 import { applyPrimitive } from "./evalPrimitive";
+import {isArray} from "../shared/type-predicates";
 
 // ========================================================
 // Eval functions
@@ -101,9 +102,15 @@ export const evalParse = (s: string): Result<Value> =>
     bind(bind(p(s), parseL5Exp), (exp: Exp) => evalSequence([exp], theGlobalEnv));
 
 //letValue
-export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=>
-    makeFailure("not implanted")
+export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=> {
+    const vals =applicativeEval(exp.bdp.val, env)
+    const vars = map((b: VarDecl) => b.var, exp.bdp.var);
+    console.log(vals)
 
+    return isOk(vals)&&isArray(vals.value)&&vals.value.length===vars.length?
+        bind(vals,(val:SExpValue)=>isArray(val)?evalSequence(exp.body, makeExtEnv(vars, val, env)):makeFailure("TODO"))//TODO
+        :makeFailure("nir lama 🤕")
+}
 
 // LET: Direct evaluation rule without syntax expansion
 // compute the values, extend the env, eval the body.
@@ -135,7 +142,7 @@ const evalSet = (exp: SetExp, env: Env): Result<void> =>
         (applicativeEval(exp.val, env), applyEnvBdg(env, exp.var.var));
 
 
-const t =evalParse('(values 1 2 3)');
-const b =evalParse('(let-values (((x y) (values 10 3))) (list y x))');
-console.log(isOk(t)?t.value:t)
+// const t =evalParse('(values 1 2 3)');
+const b =evalParse("(let-values (((x y) (values 10 3))) (cons y x))");
+// console.log(isOk(t)?t.value:t)
 console.log(isOk(b)?b.value:b)
