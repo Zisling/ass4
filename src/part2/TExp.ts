@@ -153,6 +153,7 @@ export const parseTExp = (texp: Sexp): Result<TExp> =>
     (texp === "boolean") ? makeOk(makeBoolTExp()) :
     (texp === "void") ? makeOk(makeVoidTExp()) :
     (texp === "string") ? makeOk(makeStrTExp()) :
+    isArray(texp)&& texp.length===1&&(texp[0] === "Empty")? makeOk(makeEmptyTupleTExp()) :
     isString(texp) ? makeOk(makeTVar(texp)) :
     isArray(texp) ? parseCompoundTExp(texp) :
     makeFailure(`Unexpected TExp - ${texp}`);
@@ -288,3 +289,5 @@ export const equivalentTEs = (te1: TExp, te2: TExp): boolean => {
         return (uniq(map((p) => p.left.var, tvarsPairs)).length === uniq(map((p) => p.right.var, tvarsPairs)).length);
     }
 };
+const x = parseTE('(Empty -> Empty)')
+console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
