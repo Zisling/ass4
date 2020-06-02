@@ -37,8 +37,14 @@ export interface SymbolSExp {
     tag: "SymbolSExp";
     val: string;
 }
+export interface Tuple {
+    tag: "Tuple";
+    val: SExpValue[];
+}
+export const makeTuple = (val: SExpValue[]):Tuple=>({tag:"Tuple",val:val });
+export const isTuple = (x: any): x is Tuple => x.tag==="Tuple";
 
-export type SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp | void;
+export type SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp | void | Tuple | SExpValue[];
 export const isSExp = (x: any): x is SExpValue =>
     typeof(x) === 'string' || typeof(x) === 'boolean' || typeof(x) === 'number' ||
     isSymbolSExp(x) || isCompoundSExp(x) || isEmptySExp(x) || isPrimOp(x) || isClosure(x);

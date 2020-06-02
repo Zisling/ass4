@@ -203,7 +203,7 @@ export const parseL5SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
     op === "quote" ? parseLitExp(first(params)) :
     op === "letrec" ? parseLetrecExp(first(params), rest(params)) :
     op === "set!" ? parseSetExp(params) :
-    op === "​​let-values" ? parseLetValuesExp(first(params), rest(params)):
+    op === "let-values" ? parseLetValuesExp(first(params), rest(params)):
     makeFailure("Never");
 
 export const parseDefine = (params: Sexp[]): Result<DefineExp> =>
@@ -257,7 +257,7 @@ const isPrimitiveOp = (x: string): boolean =>
      "number?", "boolean?", "symbol?", "string?", "display", "newline", "values"].includes(x);
 
 const isSpecialForm = (x: string): boolean =>
-    ["if", "lambda", "let", "quote", "letrec", "set!", "​​let-values"].includes(x);
+    ["if", "lambda", "let", "quote", "letrec", "set!", "let-values"].includes(x);
 
 const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
     safe2((rator: CExp, rands: CExp[]) => makeOk(makeAppExp(rator, rands)))
@@ -425,8 +425,8 @@ const unparseLetrecExp = (le: LetrecExp): Result<string> =>
 const unparseSetExp = (se: SetExp): Result<string> =>
     bind(unparse(se.val), (val: string) => makeOk(`(set! ${se.var.var} ${val})`));
 
-// const spahget = parseL5('(L5 (​​let-values (((​x y​) (​quotient/remainder ​​10 ​​3​))) (list y x)))')
-// const spahget2 = parseL5('(L5 (​​let-values (((a b c) (f 0))) (+ a b c)))')
+// const spahget = parseL5('(L5 (let-values (((x y) (quotient/remainder 10 3))) (list y x)))')
+// const spahget2 = parseL5('(L5 (let-values (((a b c) (f 0))) (+ a b c)))')
 // console.log(isOk(spahget) && isProgram(spahget.value) && isLetValuesExp(spahget.value.exps[0])? spahget.value.exps[0] : spahget);
 // console.log(isOk(spahget2) && isProgram(spahget2.value) && isLetValuesExp(spahget2.value.exps[0])? spahget2.value.exps[0] : spahget);
 // const y = isOk(spahget2)?unparse(spahget2.value):spahget2

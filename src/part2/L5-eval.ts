@@ -21,9 +21,9 @@ import { isAppExp, isDefineExp, isIfExp, isLetrecExp, isLetExp,
          isProcExp, isSetExp } from "./L5-ast";
 import { applyEnv, applyEnvBdg, globalEnvAddBinding, makeExtEnv, setFBinding,
          theGlobalEnv, Env, FBinding } from "./L5-env";
-import {isClosure, makeClosure, Closure, Value, SExpValue} from "./L5-value";
+import {isClosure, makeClosure, Closure, Value, SExpValue, makeTuple} from "./L5-value";
 import { isEmpty, first, rest } from '../shared/list';
-import { Result, makeOk, makeFailure, mapResult, safe2, bind } from "../shared/result";
+import {Result, makeOk, makeFailure, mapResult, safe2, bind, isOk} from "../shared/result";
 import { parse as p } from "../shared/parser";
 import { applyPrimitive } from "./evalPrimitive";
 
@@ -65,8 +65,7 @@ const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
     makeFailure(`Bad procedure ${JSON.stringify(proc)}`);
 
 const applyValue=(arg:SExpValue[]):Result<Value>=>
-    makeFailure("not impla")//TODO
-
+        makeOk(arg)
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     const vars = map((v: VarDecl) => v.var, proc.params);
     return evalSequence(proc.body, makeExtEnv(vars, args, proc.env));
@@ -136,4 +135,7 @@ const evalSet = (exp: SetExp, env: Env): Result<void> =>
         (applicativeEval(exp.val, env), applyEnvBdg(env, exp.var.var));
 
 
-console.log(evalParse('(values 1 2 3)'));
+const t =evalParse('(values 1 2 3)');
+const b =evalParse('(let-values (((x y) (values 10 3))) (list y x))');
+console.log(isOk(t)?t.value:t)
+console.log(isOk(b)?b.value:b)
