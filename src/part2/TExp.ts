@@ -211,7 +211,7 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isProcTExp(x) ? safe2((paramTEs: string[], returnTE: string | string[]) => makeOk([...paramTEs, '->', isString(returnTE)?returnTE:returnTE.join(' ')]))
                             (isNonEmptyTupleTExp(x.paramTEs)?unparseTuple(x.paramTEs.TEs):isEmptyTupleTExp(x.paramTEs)?makeOk(["Empty"]):
                                 bind(unparseTExp(x.paramTEs),r=>makeOk([r]))
-                                , unparseTExp(x.returnTE)) :
+                                , isTupleTExp(x.returnTE)?up(x.returnTE):unparseTExp(x.returnTE)) :
         makeFailure("Never");
     const unparsed = up(te);
     return bind(unparsed,
