@@ -105,7 +105,6 @@ export const evalParse = (s: string): Result<Value> =>
 export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=> {
     const vals =applicativeEval(exp.bdp.val, env)
     const vars = map((b: VarDecl) => b.var, exp.bdp.var);
-    console.log(vals)
     return bind(vals,(val:SExpValue)=>isArray(val)&&val.length===vars.length?evalSequence(exp.body, makeExtEnv(vars, val, env))
         :makeFailure(`number of var decal is not equal to values val = ${val} vars = ${vars}`))
 }
@@ -141,6 +140,6 @@ const evalSet = (exp: SetExp, env: Env): Result<void> =>
 
 
 // const t =evalParse('(values 1 2 3)');
-const b =evalParse("(let-values (((x y) (values 10 3))) (cons y x))");
+// const b =evalParse("(let-values (((x y) (values 10 3))) (cons y x))");
 // console.log(isOk(t)?t.value:t)
-console.log(isOk(b)?b.value:b)
+// console.log(isOk(b)?b.value:b)

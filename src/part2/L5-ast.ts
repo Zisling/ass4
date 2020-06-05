@@ -233,7 +233,7 @@ export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
 
 /* New /* New /* New /* New /* New /* New /* New */
 export const parseLetValuesExp = (vars_vals: Sexp, body:Sexp[] ): Result<LetValuesExp> =>{
-    console.log(body)
+    // console.log(body)
     return isEmpty(body) ? makeFailure('Body of "let-values" cannot be empty') :
         isArray(vars_vals[0])?
             safe2((bdg:BindingPlural, body:CExp[])=> makeOk(makeLetValuesExp(bdg, body)))

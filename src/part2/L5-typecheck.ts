@@ -1,17 +1,48 @@
 // L5-typecheck
 // ========================================================
 import { equals, map, zipWith } from 'ramda';
-import { isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNumExp,
-         isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
-         AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
-         Parsed, PrimOp, ProcExp, Program, StrExp } from "./L5-ast";
+import {
+    isAppExp, isBoolExp, isDefineExp, isIfExp, isLetrecExp, isLetExp, isNumExp,
+    isPrimOp, isProcExp, isProgram, isStrExp, isVarRef, parseL5Exp, unparse,
+    AppExp, BoolExp, DefineExp, Exp, IfExp, LetrecExp, LetExp, NumExp,
+    Parsed, PrimOp, ProcExp, Program, StrExp, isLetValuesExp, LetValuesExp
+} from "./L5-ast";
 import { applyTEnv, makeEmptyTEnv, makeExtendTEnv, TEnv } from "./TEnv";
-import { isProcTExp, makeBoolTExp, makeNumTExp, makeProcTExp, makeStrTExp, makeVoidTExp,
-         parseTE, unparseTExp,
-         BoolTExp, NumTExp, StrTExp, TExp, VoidTExp } from "./TExp";
+import {
+    isProcTExp,
+    makeBoolTExp,
+    makeNumTExp,
+    makeProcTExp,
+    makeStrTExp,
+    makeVoidTExp,
+    parseTE,
+    unparseTExp,
+    BoolTExp,
+    NumTExp,
+    StrTExp,
+    TExp,
+    VoidTExp,
+    makeNonEmptyTupleTExp,
+    makeEmptyTupleTExp,
+    isNonEmptyTupleTExp,
+    isEmptyTupleTExp, isTExp
+} from "./TExp";
 import { isEmpty, allT, first, rest } from '../shared/list';
-import { Result, makeFailure, bind, makeOk, safe3, safe2, zipWithResult } from '../shared/result';
+import {
+    Result,
+    makeFailure,
+    bind,
+    makeOk,
+    safe3,
+    safe2,
+    zipWithResult,
+    mapResult,
+    isFailure,
+    isOk
+} from '../shared/result';
 import { parse as p } from "../shared/parser";
+import {isTuple} from "./L5-value";
+import {isArray} from "../shared/type-predicates";
 
 // Purpose: Check that type expressions are equivalent
 // as part of a fully-annotated type check process of exp.
@@ -40,11 +71,14 @@ export const typeofExp = (exp: Parsed, tenv: TEnv): Result<TExp> =>
     isBoolExp(exp) ? makeOk(typeofBool(exp)) :
     isStrExp(exp) ? makeOk(typeofStr(exp)) :
     isPrimOp(exp) ? typeofPrim(exp) :
+    isArray(exp) ? bind(mapResult(e=>typeofExp(e,tenv),exp),
+        (arr:TExp[])=>makeOk(arr.length!==0?makeNonEmptyTupleTExp(arr):makeEmptyTupleTExp())):
     isVarRef(exp) ? applyTEnv(tenv, exp.var) :
     isIfExp(exp) ? typeofIf(exp, tenv) :
     isProcExp(exp) ? typeofProc(exp, tenv) :
     isAppExp(exp) ? typeofApp(exp, tenv) :
     isLetExp(exp) ? typeofLet(exp, tenv) :
+    isLetValuesExp(exp) ? typeofLetValues(exp, tenv) :
     isLetrecExp(exp) ? typeofLetrec(exp, tenv) :
     isDefineExp(exp) ? typeofDefine(exp, tenv) :
     isProgram(exp) ? typeofProgram(exp, tenv) :
@@ -111,7 +145,8 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
     const extTEnv = makeExtendTEnv(map((vd) => vd.var, proc.args), argsTEs, tenv);
     const constraint1 = bind(typeofExps(proc.body, extTEnv),
                              (body: TExp) => checkEqualType(body, proc.returnTE, proc));
-    return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs, proc.returnTE)));
+    return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs.length===0?makeEmptyTupleTExp():argsTEs.length===1?argsTEs[0]:makeNonEmptyTupleTExp(argsTEs)
+        , proc.returnTE)));
 };
 
 // Purpose: compute the type of an app-exp
@@ -123,17 +158,27 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
 // then type<(rator rand1...randn)>(tenv) = t
 // We also check the correct number of arguments is passed.
 export const typeofApp = (app: AppExp, tenv: TEnv): Result<TExp> =>
-    bind(typeofExp(app.rator, tenv), (ratorTE: TExp) => {
+    isPrimOp(app.rator)&&app.rator.op==='values'?
+        bind(mapResult(rand =>typeofExp(rand,tenv) ,app.rands),
+            (f:TExp[])=>makeOk(f.length===0?makeEmptyTupleTExp():f.length===1?f[0]:makeNonEmptyTupleTExp(f)))
+    :bind(typeofExp(app.rator, tenv), (ratorTE: TExp) => {
         if (! isProcTExp(ratorTE)) {
             return safe2((rator: string, exp: string) => makeFailure<TExp>(`Application of non-procedure: ${rator} in ${exp}`))
                     (unparseTExp(ratorTE), unparse(app));
         }
-        if (app.rands.length !== ratorTE.paramTEs.length) {
+        if ((isNonEmptyTupleTExp(ratorTE.paramTEs)&&app.rands.length !== ratorTE.paramTEs.TEs.length)) {
             return bind(unparse(app), (exp: string) => makeFailure<TExp>(`Wrong parameter numbers passed to proc: ${exp}`));
         }
-        const constraints = zipWithResult((rand, trand) => bind(typeofExp(rand, tenv),
-                                                                (typeOfRand: TExp) => checkEqualType(typeOfRand, trand, app)),
-                                          app.rands, ratorTE.paramTEs);
+        const constraints = isNonEmptyTupleTExp(ratorTE.paramTEs) && app.rands.length === ratorTE.paramTEs.TEs.length?
+        zipWithResult((rand, trand) => bind(typeofExp(rand, tenv),
+                    (typeOfRand: TExp) => checkEqualType(typeOfRand, trand, app)),
+                                  app.rands, ratorTE.paramTEs.TEs):
+        isEmptyTupleTExp(ratorTE.paramTEs)?zipWithResult((rand, trand) => bind(typeofExp(rand, tenv),
+            (typeOfRand: TExp) => checkEqualType(typeOfRand, trand, app)),
+            app.rands, [])
+            :zipWithResult((rand, trand) => bind(typeofExp(rand, tenv),
+            (typeOfRand: TExp) => checkEqualType(typeOfRand, trand, app)),
+            app.rands, [ratorTE.paramTEs])
         return bind(constraints, _ => makeOk(ratorTE.returnTE));
     });
 
@@ -151,6 +196,17 @@ export const typeofLet = (exp: LetExp, tenv: TEnv): Result<TExp> => {
     const constraints = zipWithResult((varTE, val) => bind(typeofExp(val, tenv),
                                                            (typeOfVal: TExp) => checkEqualType(varTE, typeOfVal, exp)),
                                       varTEs, vals);
+    return bind(constraints, _ => typeofExps(exp.body, makeExtendTEnv(vars, varTEs, tenv)));
+};
+export const typeofLetValues = (exp: LetValuesExp, tenv: TEnv): Result<TExp> => {
+    const vars = map((b) => b.var, exp.bdp.var);
+    const val = exp.bdp.val;
+    const typeOfvals = typeofExp(val,tenv);
+    const typeOfvals2 = bind(typeOfvals,v=>makeOk(isNonEmptyTupleTExp(v)?v.TEs:isEmptyTupleTExp(v)?[]:[v]))
+    const varTEs = map((b) => b.texp, exp.bdp.var);
+    const constraints = bind(typeOfvals2,t=>zipWithResult((varTE, val) => bind(makeOk(val),
+        (typeOfVal: TExp) => checkEqualType(varTE, typeOfVal, exp)),
+        varTEs, t));
     return bind(constraints, _ => typeofExps(exp.body, makeExtendTEnv(vars, varTEs, tenv)));
 };
 
@@ -174,7 +230,7 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
     const bodies = map((p) => p.body, procs);
     const tijs = map((params) => map((p) => p.texp, params), paramss);
     const tis = map((proc) => proc.returnTE, procs);
-    const tenvBody = makeExtendTEnv(ps, zipWith((tij, ti) => makeProcTExp(tij, ti), tijs, tis), tenv);
+    const tenvBody = makeExtendTEnv(ps, zipWith((tij, ti) => makeProcTExp(makeNonEmptyTupleTExp(tij), ti), tijs, tis), tenv);
     const tenvIs = zipWith((params, tij) => makeExtendTEnv(map((p) => p.var, params), tij, tenvBody),
                            paramss, tijs);
     const types = zipWithResult((bodyI, tenvI) => typeofExps(bodyI, tenvI), bodies, tenvIs)
@@ -199,3 +255,8 @@ export const typeofDefine = (exp: DefineExp, tenv: TEnv): Result<VoidTExp> => {
 // TODO - write the true definition
 export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     makeFailure("TODO");
+
+// const x = L5typeof("(let-values ( values 1 2 3))")
+// const y = L5typeof(`(let-values ((((a : number) (b : number) (c : number)) (values 1 2 3))) a)`)
+// console.log(isOk(x)?x.value:x)
+// console.log(isOk(y)?y.value:y)
