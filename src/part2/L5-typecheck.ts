@@ -260,6 +260,6 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     makeFailure("TODO");
 
 // const x = L5typeof("(let-values ( values 1 2 3))")
-const y = L5typeof(`(let-values ((((a : number) (b : number) (c : number)) (values 1 2 3)) (((d : number) (e : number)) (values 4 5))) (values a e))`)
+// const y = L5typeof(`(let-values ((((a : number) (b : number) (c : number)) (values 1 2 3)) (((d : number) (e : number)) (values 4 5))) (values a e))`)
 // console.log(isOk(x)?x.value:x)
-console.log(isOk(y)?y.value:y)
+// console.log(isOk(y)?y.value:y)
