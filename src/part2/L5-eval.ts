@@ -1,6 +1,6 @@
 // L5-eval-box
 
-import { map, repeat, zipWith } from "ramda";
+import {map, reduce, repeat, zipWith} from "ramda";
 import {
     CExp,
     Exp,
@@ -103,8 +103,16 @@ export const evalParse = (s: string): Result<Value> =>
 
 //letValue
 export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=> {
-    const vals =applicativeEval(exp.bdp.val, env)
-    const vars = map((b: VarDecl) => b.var, exp.bdp.var);
+    const vals_arr =mapResult(v=>applicativeEval(v.val, env),exp.bdp)
+    const vals = bind(vals_arr,
+        (arr):Result<Value[]>=>isArray(arr)?
+            makeOk(arr.reduce((acc:any[],curr)=>
+            isArray(curr)?acc.concat(curr):acc.concat([curr]) ,[]))
+            :makeFailure("not a tuple") )
+    const vars_arr = map((b: BindingPlural) =>b.var, exp.bdp);
+    const vars =vars_arr.reduce((curr,acc)=>acc.concat(curr),[]).map(x=>x.var);
+    console.log(vars.length)
+    console.log(isOk(vals)&&isArray(vals.value)?vals.value:vals)
     return bind(vals,(val:SExpValue)=>isArray(val)&&val.length===vars.length?evalSequence(exp.body, makeExtEnv(vars, val, env))
         :makeFailure(`number of var decal is not equal to values val = ${val} vars = ${vars}`))
 }
@@ -140,6 +148,6 @@ const evalSet = (exp: SetExp, env: Env): Result<void> =>
 
 
 // const t =evalParse('(values 1 2 3)');
-// const b =evalParse("(let-values (((x y) (values 10 3))) (cons y x))");
 // console.log(isOk(t)?t.value:t)
+// const b =evalParse("(let-values (((x y) (values 10 3)) ((t z) (values 5 6))) (cons y t))");
 // console.log(isOk(b)?b.value:b)

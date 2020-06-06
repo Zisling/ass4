@@ -81,9 +81,9 @@ export const expComponents = (e: Exp): CExp[] =>
     []; // Atomic expressions have no components
 
 // Type definitions
-export interface LetValuesExp {tag:"LetValuesExp"; bdp: BindingPlural, body:CExp[]}
+export interface LetValuesExp {tag:"LetValuesExp"; bdp: BindingPlural[], body:CExp[]}
 export const isLetValuesExp = (x: any): x is LetValuesExp => x.tag === "LetValuesExp";
-export const makeLetValuesExp = (bdp: BindingPlural, body:CExp[]):LetValuesExp=>({tag:"LetValuesExp",bdp:bdp, body:body });
+export const makeLetValuesExp = (bdp: BindingPlural[], body:CExp[]):LetValuesExp=>({tag:"LetValuesExp",bdp:bdp, body:body });
 
 export interface Program {tag: "Program"; exps: Exp[]; }
 export const makeProgram = (exps: Exp[]): Program => ({tag: "Program", exps: exps});
@@ -235,9 +235,9 @@ export const parseL5CExp = (sexp: Sexp): Result<CExp> =>
 export const parseLetValuesExp = (vars_vals: Sexp, body:Sexp[] ): Result<LetValuesExp> =>{
     // console.log(body)
     return isEmpty(body) ? makeFailure('Body of "let-values" cannot be empty') :
-        isArray(vars_vals[0])?
-            safe2((bdg:BindingPlural, body:CExp[])=> makeOk(makeLetValuesExp(bdg, body)))
-            (parseBindingPlural(first(vars_vals[0]), rest(vars_vals[0])), mapResult(parseL5CExp, body)) :
+        isArray(vars_vals)?
+            safe2((bdg:BindingPlural[], body:CExp[])=> makeOk(makeLetValuesExp(bdg, body)))
+            (mapResult(x=>isArray(x)?parseBindingPlural(first(x) ,rest(x)):makeFailure("fail"), vars_vals), mapResult(parseL5CExp, body)) :
             makeFailure("parse of LetValues failed.");
 }
 
@@ -377,8 +377,8 @@ export const unparse = (e: Parsed): Result<string> =>
     isProcExp(e) ? unparseProcExp(e) :
     isLitExp(e) ? makeOk(unparseLitExp(e)) :
     isSetExp(e) ? unparseSetExp(e) :
-    isLetValuesExp(e) ? safe2((SBdp:string,SBody:string[]):Result<string>=>makeOk(`(let-values (${SBdp}) ${SBody})`))
-        (unparsedBindingPlural(e.bdp),mapResult(unparse,e.body)):
+    isLetValuesExp(e) ? safe2((SBdp:string[],SBody:string[]):Result<string>=>makeOk(`(let-values (${SBdp.join(' ')}) ${SBody})`))
+        (mapResult(b=>unparsedBindingPlural(b) ,e.bdp),mapResult(unparse,e.body)):
     // DefineExp | Program
     isDefineExp(e) ? safe2((vd: string, val: string) => makeOk(`(define ${vd} ${val})`))
                         (unparseVarDecl(e.var), unparse(e.val)) :
@@ -427,9 +427,12 @@ const unparseSetExp = (se: SetExp): Result<string> =>
 
 // const spahget = parseL5('(L5 (let-values (((x y) (quotient/remainder 10 3))) (list y x)))')
 // const spahget2 = parseL5('(L5 (let-values (((a b c) (f 0))) (+ a b c)))')
+// const spahget3 = parseL5('(L5 (let-values (((a b c) (values 1 2 3)) ((a b c) (values 1 2 3))) (+ a b c)))')
 // console.log(isOk(spahget) && isProgram(spahget.value) && isLetValuesExp(spahget.value.exps[0])? spahget.value.exps[0] : spahget);
-// console.log(isOk(spahget2) && isProgram(spahget2.value) && isLetValuesExp(spahget2.value.exps[0])? spahget2.value.exps[0] : spahget);
-// const y = isOk(spahget2)?unparse(spahget2.value):spahget2
+// console.log(isOk(spahget2) && isProgram(spahget2.value) && isLetValuesExp(spahget2.value.exps[0])? spahget2.value.exps[0] : spahget2);
+// console.log(isOk(spahget3) && isProgram(spahget3.value) && isLetValuesExp(spahget3.value.exps[0])? spahget3.value.exps[0] : spahget3);
+// // const y = isOk(spahget2)?unparse(spahget2.value):spahget2
+// const y = isOk(spahget3)?unparse(spahget3.value):spahget3
 // console.log(isOk(y)?y.value:y)
 // const spa = isOk(y)?parseL5(y.value):y
 // console.log(isOk(spa)?spa.value:spa)

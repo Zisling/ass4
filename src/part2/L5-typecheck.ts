@@ -199,15 +199,18 @@ export const typeofLet = (exp: LetExp, tenv: TEnv): Result<TExp> => {
     return bind(constraints, _ => typeofExps(exp.body, makeExtendTEnv(vars, varTEs, tenv)));
 };
 export const typeofLetValues = (exp: LetValuesExp, tenv: TEnv): Result<TExp> => {
-    const vars = map((b) => b.var, exp.bdp.var);
-    const val = exp.bdp.val;
-    const typeOfvals = typeofExp(val,tenv);
-    const typeOfvals2 = bind(typeOfvals,v=>makeOk(isNonEmptyTupleTExp(v)?v.TEs:isEmptyTupleTExp(v)?[]:[v]))
-    const varTEs = map((b) => b.texp, exp.bdp.var);
-    const constraints = bind(typeOfvals2,t=>zipWithResult((varTE, val) => bind(makeOk(val),
+    const vars_arr = map((b) => b.var, exp.bdp);
+    const vars =vars_arr.reduce((curr,acc)=>acc.concat(curr),[]);
+
+    const val = map(b=>b.val,exp.bdp);
+    const typeOfvals = mapResult(v=>typeofExp(v,tenv),val);
+    const typeOfvals2 = bind(bind(typeOfvals,tov=>mapResult(v=>makeOk(isNonEmptyTupleTExp(v)?v.TEs:isEmptyTupleTExp(v)?[]:[v]),tov)),
+        arr=>makeOk(arr.reduce((curr,acc)=>acc.concat(curr),[])))
+    const varTEs = map((b) => b.texp, vars);
+    const constraints = bind(typeOfvals2,t=>zipWithResult((varTE, val:TExp) => bind(makeOk(val),
         (typeOfVal: TExp) => checkEqualType(varTE, typeOfVal, exp)),
         varTEs, t));
-    return bind(constraints, _ => typeofExps(exp.body, makeExtendTEnv(vars, varTEs, tenv)));
+    return bind(constraints, _ => typeofExps(exp.body, makeExtendTEnv(map(v => v.var,vars), varTEs, tenv)));
 };
 
 // Purpose: compute the type of a letrec-exp
@@ -257,6 +260,6 @@ export const typeofProgram = (exp: Program, tenv: TEnv): Result<TExp> =>
     makeFailure("TODO");
 
 // const x = L5typeof("(let-values ( values 1 2 3))")
-// const y = L5typeof(`(let-values ((((a : number) (b : number) (c : number)) (values 1 2 3))) a)`)
+const y = L5typeof(`(let-values ((((a : number) (b : number) (c : number)) (values 1 2 3)) (((d : number) (e : number)) (values 4 5))) (values a e))`)
 // console.log(isOk(x)?x.value:x)
-// console.log(isOk(y)?y.value:y)
+console.log(isOk(y)?y.value:y)
