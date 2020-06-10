@@ -2,16 +2,29 @@
 const g = (x:number):Promise<number>=> {
     return new Promise<number>((resolve, reject)=>
     {
+        try {
             resolve(x*x)
+        }
+        catch (e) {
+            console.log(e);
+            reject(e);
+        }
     })
 };
 const f = (x:number):Promise<number>=> {
     return new Promise<number>((resolve, reject)=>{
-        if(x === 0){
-            reject("Error: Division by zero")
+        try {
+            if(x === 0){
+                reject("Error: Division by zero")
+            }
+            else
+                resolve(1/x)
         }
-        else
-            resolve(1/x)
+        catch (e) {
+            console.log(e)
+            reject(e)
+        }
+
     })
 }
 
@@ -23,8 +36,8 @@ const h =  (x:number):Promise<number>=> {
         }).catch((err)=>reject(err))
     })
 }
-const prom = h(0)
-prom.then((num:number)=>console.log("Success: "+num)).catch((err)=>console.log(err))
+// const prom = h(0)
+// prom.then((num:number)=>console.log("Success: "+num)).catch((err)=>console.log(err))
 
 
 
@@ -38,7 +51,7 @@ const slower = <T>(arr:(Promise<T>)[])=>
             }).catch(err=>reject(err))
         }
 })
-const exmpro = new Promise((resolve,reject)=>setTimeout(resolve,10,"1"))
-const exmpro2 = new Promise((resolve,reject)=>setTimeout(resolve,10,"2"))
-const prom2 = slower([exmpro2,exmpro]);
-prom2.then(x=>console.log(x));
+// const exmpro = new Promise((resolve,reject)=>setTimeout(resolve,10,"1"))
+// const exmpro2 = new Promise((resolve,reject)=>setTimeout(resolve,10,"2"))
+// const prom2 = slower([exmpro2,exmpro]);
+// prom2.then(x=>console.log(x));
