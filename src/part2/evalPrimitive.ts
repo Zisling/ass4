@@ -1,5 +1,15 @@
 import { PrimOp } from "./L5-ast";
-import { Value, isSymbolSExp, isCompoundSExp, makeCompoundSExp, makeEmptySExp, isEmptySExp, CompoundSExp, EmptySExp } from "./L5-value";
+import {
+    Value,
+    isSymbolSExp,
+    isCompoundSExp,
+    makeCompoundSExp,
+    makeEmptySExp,
+    isEmptySExp,
+    CompoundSExp,
+    EmptySExp,
+    makeTuple
+} from "./L5-value";
 import { Result, makeFailure, makeOk } from "../shared/result";
 import { allT, first, rest } from "../shared/list";
 import { isNumber, isString, isBoolean } from "../shared/type-predicates";
@@ -26,6 +36,7 @@ export const applyPrimitive = (proc: PrimOp, args: Value[]): Result<Value> =>
     proc.op === "boolean?" ? makeOk(typeof(args[0]) === 'boolean') :
     proc.op === "symbol?" ? makeOk(isSymbolSExp(args[0])) :
     proc.op === "string?" ? makeOk(isString(args[0])) :
+    proc.op === "values" ? makeOk(makeTuple(args)) :
     // display, newline
     makeFailure("Bad primitive op " + proc.op);
 

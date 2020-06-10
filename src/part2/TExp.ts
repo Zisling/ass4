@@ -69,13 +69,13 @@ export const makeVoidTExp = (): VoidTExp => ({tag: "VoidTExp"});
 export const isVoidTExp = (x: any): x is VoidTExp => x.tag === "VoidTExp";
 
 // proc-te(param-tes: list(te), return-te: te)
-export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp; returnTE: TExp; };
-export const makeProcTExp = (paramTEs: TExp, returnTE: TExp): ProcTExp =>
+export type ProcTExp = { tag: "ProcTExp"; paramTEs: TExp[]; returnTE: TExp; };
+export const makeProcTExp = (paramTEs: TExp[], returnTE: TExp): ProcTExp =>
     ({tag: "ProcTExp", paramTEs: paramTEs, returnTE: returnTE});
 export const isProcTExp = (x: any): x is ProcTExp => x.tag === "ProcTExp";
 // Uniform access to all components of a ProcTExp
 export const procTExpComponents = (pt: ProcTExp): TExp[] =>
-    [...isNonEmptyTupleTExp(pt.paramTEs)?pt.paramTEs.TEs:[pt.paramTEs], pt.returnTE];
+    [...pt.paramTEs, pt.returnTE];
 
 export type TupleTExp = NonEmptyTupleTExp | EmptyTupleTExp;
 export const isTupleTExp = (x: any): x is TupleTExp =>
@@ -169,8 +169,8 @@ const parseCompoundTExp = (texps: Sexp[]): Result<TExp> => {
            (pos === 0) ? makeFailure(`No param types in proc texp - ${texps}`) :
            (pos === texps.length - 1) ? makeFailure(`No return type in proc texp - ${texps}`) :
            (texps.slice(pos + 1).indexOf('->') > -1) ? makeFailure(`Only one -> allowed in a procexp - ${texps}`) :
-           safe2((args: TExp, returnTE: TExp) => makeOk(makeProcTExp(args, returnTE)))
-                (parseTExp(texps.slice(0, pos)), parseTExp(texps.slice(pos+1)));
+           safe2((args: TExp[], returnTE: TExp) => makeOk(makeProcTExp(args, returnTE)))
+                (parseTupleTExp(texps.slice(0, pos)), parseTExp(texps.slice(pos+1)));
 };
 
 /*
@@ -209,8 +209,7 @@ export const unparseTExp = (te: TExp): Result<string> => {
         isEmptyTVar(x) ? makeOk(x.var) :
         isTVar(x) ? up(tvarContents(x)) :
         isProcTExp(x) ? safe2((paramTEs: string[], returnTE: string | string[]) => makeOk([...paramTEs, '->', isString(returnTE)?returnTE:returnTE.join(' ')]))
-                            (isNonEmptyTupleTExp(x.paramTEs)?unparseTuple(x.paramTEs.TEs):isEmptyTupleTExp(x.paramTEs)?makeOk(["Empty"]):
-                                bind(unparseTExp(x.paramTEs),r=>makeOk([r]))
+                            (unparseTuple(x.paramTEs)
                                 , isTupleTExp(x.returnTE)?up(x.returnTE):unparseTExp(x.returnTE)) :
         makeFailure("Never");
     const unparsed = up(te);
@@ -295,3 +294,6 @@ export const equivalentTEs = (te1: TExp, te2: TExp): boolean => {
 // console.log(isOk(x)&&isProcTExp(x.value)?x.value:x)
 // const y =isOk(x)?unparseTExp(x.value):x;
 // console.log(isOk(y)?y.value:y)
+// const z = parseTE('(Empty -> (number * number -> string))')
+// console.log(isOk(z)?z.value:z)
+// console.log(isOk(z)?unparseTExp(z.value):z)

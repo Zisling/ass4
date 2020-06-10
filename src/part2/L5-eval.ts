@@ -21,7 +21,7 @@ import { isAppExp, isDefineExp, isIfExp, isLetrecExp, isLetExp,
          isProcExp, isSetExp } from "./L5-ast";
 import { applyEnv, applyEnvBdg, globalEnvAddBinding, makeExtEnv, setFBinding,
          theGlobalEnv, Env, FBinding } from "./L5-env";
-import {isClosure, makeClosure, Closure, Value, SExpValue, makeTuple} from "./L5-value";
+import {isClosure, makeClosure, Closure, Value, SExpValue, makeTuple, isTuple} from "./L5-value";
 import { isEmpty, first, rest } from '../shared/list';
 import {Result, makeOk, makeFailure, mapResult, safe2, bind, isOk} from "../shared/result";
 import { parse as p } from "../shared/parser";
@@ -61,12 +61,11 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 // KEY: This procedure does NOT have an env parameter.
 //      Instead we use the env of the closure.
 const applyProcedure = (proc: Value, args: Value[]): Result<Value> =>
-    isPrimOp(proc) ? proc.op!=="values"?applyPrimitive(proc, args):applyValue(args) :
+    isPrimOp(proc) ? applyPrimitive(proc, args):
     isClosure(proc) ? applyClosure(proc, args) :
     makeFailure(`Bad procedure ${JSON.stringify(proc)}`);
 
-const applyValue=(arg:SExpValue[]):Result<Value>=>
-        makeOk(arg)
+
 const applyClosure = (proc: Closure, args: Value[]): Result<Value> => {
     const vars = map((v: VarDecl) => v.var, proc.params);
     return evalSequence(proc.body, makeExtEnv(vars, args, proc.env));
@@ -107,13 +106,11 @@ export const evalLetValue = (exp:LetValuesExp,env:Env):Result<Value>=> {
     const vals = bind(vals_arr,
         (arr):Result<Value[]>=>isArray(arr)?
             makeOk(arr.reduce((acc:any[],curr)=>
-            isArray(curr)?acc.concat(curr):acc.concat([curr]) ,[]))
+            isTuple(curr)?acc.concat(curr.val):acc.concat([curr]) ,[]))
             :makeFailure("not a tuple") )
     const vars_arr = map((b: BindingPlural) =>b.var, exp.bdp);
     const vars =vars_arr.reduce((curr,acc)=>acc.concat(curr),[]).map(x=>x.var);
-    console.log(vars.length)
-    console.log(isOk(vals)&&isArray(vals.value)?vals.value:vals)
-    return bind(vals,(val:SExpValue)=>isArray(val)&&val.length===vars.length?evalSequence(exp.body, makeExtEnv(vars, val, env))
+    return bind(vals,(val:SExpValue[])=>isArray(val)&&val.length===vars.length?evalSequence(exp.body, makeExtEnv(vars, val, env))
         :makeFailure(`number of var decal is not equal to values val = ${val} vars = ${vars}`))
 }
 

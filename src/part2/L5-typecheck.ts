@@ -145,8 +145,7 @@ export const typeofProc = (proc: ProcExp, tenv: TEnv): Result<TExp> => {
     const extTEnv = makeExtendTEnv(map((vd) => vd.var, proc.args), argsTEs, tenv);
     const constraint1 = bind(typeofExps(proc.body, extTEnv),
                              (body: TExp) => checkEqualType(body, proc.returnTE, proc));
-    return bind(constraint1, _ => makeOk(makeProcTExp(argsTEs.length===0?makeEmptyTupleTExp():argsTEs.length===1?argsTEs[0]:makeNonEmptyTupleTExp(argsTEs)
-        , proc.returnTE)));
+    return bind(constraint1, _ => makeOk(makeProcTExp( argsTEs, proc.returnTE)));
 };
 
 // Purpose: compute the type of an app-exp
@@ -178,7 +177,7 @@ export const typeofApp = (app: AppExp, tenv: TEnv): Result<TExp> =>
             app.rands, [])
             :zipWithResult((rand, trand) => bind(typeofExp(rand, tenv),
             (typeOfRand: TExp) => checkEqualType(typeOfRand, trand, app)),
-            app.rands, [ratorTE.paramTEs])
+            app.rands, ratorTE.paramTEs)
         return bind(constraints, _ => makeOk(ratorTE.returnTE));
     });
 
@@ -233,7 +232,7 @@ export const typeofLetrec = (exp: LetrecExp, tenv: TEnv): Result<TExp> => {
     const bodies = map((p) => p.body, procs);
     const tijs = map((params) => map((p) => p.texp, params), paramss);
     const tis = map((proc) => proc.returnTE, procs);
-    const tenvBody = makeExtendTEnv(ps, zipWith((tij, ti) => makeProcTExp(makeNonEmptyTupleTExp(tij), ti), tijs, tis), tenv);
+    const tenvBody = makeExtendTEnv(ps, zipWith((tij, ti) => makeProcTExp(tij, ti), tijs, tis), tenv);
     const tenvIs = zipWith((params, tij) => makeExtendTEnv(map((p) => p.var, params), tij, tenvBody),
                            paramss, tijs);
     const types = zipWithResult((bodyI, tenvI) => typeofExps(bodyI, tenvI), bodies, tenvIs)
